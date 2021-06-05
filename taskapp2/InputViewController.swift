@@ -18,9 +18,9 @@ class InputViewController: UIViewController, UIPickerViewDelegate, UIPickerViewD
     
     let realm = try! Realm()
     var task: Task! 
-    var category: Category!
     var pickerView: UIPickerView = UIPickerView()
-    var list: [String] = []
+    lazy var list = realm.objects(Category.self)
+    var selectedCategory: Category?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -46,20 +46,15 @@ class InputViewController: UIViewController, UIPickerViewDelegate, UIPickerViewD
         titleTextField.text = task.title
         contentsTextView.text = task.contents
         datePicker.date = task.date
-        
-        list.removeAll()
-        let allCategorys = realm.objects(Category.self)
-        for category in allCategorys {
-            list.append(category.categoryId.description + ":" + category.categoryName)
-        }
+
         pickerView.selectRow(task.categoryId, inComponent: 0, animated: false)
-        categoryPickerView.text = list[task.categoryId]
+        categoryPickerView.text = !list.isEmpty ? list[task.categoryId].categoryName : ""
     }
     
     // 決定ボタン押下
     @objc func done() {
         categoryPickerView.endEditing(true)
-        categoryPickerView.text = "\(list[pickerView.selectedRow(inComponent: 0)])"
+        categoryPickerView.text = selectedCategory?.categoryName
     }
     
     @objc func dismissKeyboard(){
@@ -68,10 +63,12 @@ class InputViewController: UIViewController, UIPickerViewDelegate, UIPickerViewD
     }
     
     override func viewWillDisappear(_ animated: Bool) {
+        guard let categoryId = selectedCategory?.categoryId else {
+            return
+        }
         try! realm.write {
             self.task.title = self.titleTextField.text!
-            let categoryIdArr = self.categoryPickerView.text?.components(separatedBy: ":")
-            self.task.categoryId = Int(categoryIdArr![0]) ?? 1
+            self.task.categoryId = categoryId
             self.task.contents = self.contentsTextView.text
             self.task.date = self.datePicker.date
             self.realm.add(self.task, update: .modified)
@@ -125,11 +122,7 @@ class InputViewController: UIViewController, UIPickerViewDelegate, UIPickerViewD
     // category入力画面から戻ってきた時に pickerView を更新させる
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        list.removeAll()
-        let allCategorys = realm.objects(Category.self)
-        for category in allCategorys {
-            list.append(category.categoryId.description + ":" + category.categoryName)
-        }
+        list = realm.objects(Category.self)
     }
     
     // ドラムロールの列数
@@ -144,8 +137,11 @@ class InputViewController: UIViewController, UIPickerViewDelegate, UIPickerViewD
     
     // ドラムロールの各タイトル
     func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        return list[row]
+        return list[row].categoryName
     }
-    
-    
+
+    // 選択されたとき
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        selectedCategory = list[row]
+    }
 }
